@@ -1,15 +1,18 @@
-import { Router } from 'express'
-import { SigninController } from './controllers/SigninController'
-import { SignupController } from './controllers/SignupController'
-import { authMiddleware } from './middlewares/authMiddleware'
+import { Router } from "express";
+import { SigninController } from "./controllers/SigninController";
+import { SignupController } from "./controllers/SignupController";
+import { authMiddleware } from "./middlewares/authMiddleware";
 
-const routes = Router()
+const routes = Router();
 
-routes.post('/signup', new SignupController().create)
-routes.post('/signin', new SigninController().login)
+var cors = require("cors");
+routes.use(cors({ origin: "http://localhost:3000", credentials: true }));
 
-routes.use(authMiddleware)
+routes.post("/signup", new SignupController().create);
+routes.post("/signin", new SigninController().login);
 
-routes.get('/profile', new SigninController().getProfile)
+routes.use(authMiddleware);
 
-export default routes
+routes.get("/profile", new SigninController().getProfile);
+
+export default routes;

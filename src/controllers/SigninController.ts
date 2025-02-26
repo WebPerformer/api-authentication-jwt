@@ -21,7 +21,7 @@ export class SigninController {
     }
 
     const token = jwt.sign({ id: user.id }, process.env.JWT_PASS ?? "", {
-      expiresIn: "8h",
+      expiresIn: "7d", // One week
     });
 
     const { password: _, ...userLogin } = user;
