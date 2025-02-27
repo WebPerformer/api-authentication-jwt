@@ -46,7 +46,12 @@ export class ForgotPassword {
     const { email, otp } = req.body;
 
     const user = await userRepository.findOneBy({ email });
-    if (!user || user.otpCode !== otp || new Date() > user.otpExpireAt) {
+    if (
+      !user ||
+      user.otpCode !== otp ||
+      !user.otpExpireAt ||
+      new Date() > user.otpExpireAt
+    ) {
       throw new BadRequestError("Código OTP inválido ou expirado");
     }
 
@@ -59,7 +64,12 @@ export class ForgotPassword {
     const { email, otp, newPassword } = req.body;
 
     const user = await userRepository.findOneBy({ email });
-    if (!user || user.otpCode !== otp || new Date() > user.otpExpireAt) {
+    if (
+      !user ||
+      user.otpCode !== otp ||
+      !user.otpExpireAt ||
+      new Date() > user.otpExpireAt
+    ) {
       throw new BadRequestError("Código OTP inválido ou expirado");
     }
 
@@ -67,8 +77,8 @@ export class ForgotPassword {
 
     await userRepository.update(user.id, {
       password: hashedPassword,
-      otpCode: undefined,
-      otpExpireAt: undefined,
+      otpCode: null,
+      otpExpireAt: null,
     });
 
     return res.json({ message: "Senha redefinida com sucesso" });

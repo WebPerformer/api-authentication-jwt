@@ -15,8 +15,8 @@ export class User {
   password: string;
 
   @Column({ type: "text", nullable: true })
-  otpCode: string;
+  otpCode: string | null;
 
   @Column({ type: "timestamp", nullable: true })
-  otpExpireAt: Date;
+  otpExpireAt: Date | null;
 }
