@@ -15,7 +15,7 @@ export const authMiddleware = async (
 	const { authorization } = req.headers
 
 	if (!authorization) {
-		throw new UnauthorizedError('Não autorizado')
+		throw new UnauthorizedError('Não autorizado a acessar esta rota')
 	}
 
 	const token = authorization.split(' ')[1]
@@ -25,7 +25,7 @@ export const authMiddleware = async (
 	const user = await userRepository.findOneBy({ id })
 
 	if (!user) {
-		throw new UnauthorizedError('Não autorizado')
+		throw new UnauthorizedError('Não autorizado a acessar esta rota')
 	}
 
 	const { password: _, ...loggedUser } = user
