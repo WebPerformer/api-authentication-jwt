@@ -10,7 +10,7 @@ export class SignupController {
     const userExists = await userRepository.findOneBy({ email });
 
     if (userExists) {
-      throw new BadRequestError("E-mail já existe");
+      throw new BadRequestError("Please check the information provided.");
     }
 
     const hashPassword = await bcrypt.hash(password, 10);

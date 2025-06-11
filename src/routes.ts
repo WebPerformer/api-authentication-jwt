@@ -3,6 +3,12 @@ import { SigninController } from "./controllers/SigninController";
 import { SignupController } from "./controllers/SignupController";
 import { ForgotPassword } from "./controllers/ForgotPassword";
 import { GoogleAuthController } from "./controllers/GoogleAuthController";
+import {
+  UpdateUsername,
+  UpdatePassword,
+  UpdateProfileImage,
+  DeleteProfile,
+} from "./controllers/UpdateUser";
 import { authMiddleware } from "./middlewares/authMiddleware";
 
 const routes = Router();
@@ -20,5 +26,9 @@ routes.get("/api/sessions/oauth/google", new GoogleAuthController().googleAuth);
 routes.use(authMiddleware);
 
 routes.get("/profile", new SigninController().getProfile);
+routes.delete("/profile", new DeleteProfile().delete);
+routes.put("/profile/image", new UpdateProfileImage().update);
+routes.put("/profile/username", new UpdateUsername().update);
+routes.put("/profile/password", new UpdatePassword().update);
 
 export default routes;

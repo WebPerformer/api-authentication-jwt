@@ -1,9 +1,13 @@
-import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
+import { UserOTP } from "./UserOtp";
 
 @Entity("users")
 export class User {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn("uuid")
+  id: string;
+
+  @Column({ type: "text", nullable: true })
+  profileImage: string;
 
   @Column({ type: "text" })
   username: string;
@@ -14,9 +18,6 @@ export class User {
   @Column({ type: "text" })
   password: string;
 
-  @Column({ type: "text", nullable: true })
-  otpCode: string | null;
-
-  @Column({ type: "timestamp", nullable: true })
-  otpExpireAt: Date | null;
+  @OneToMany(() => UserOTP, (otp) => otp.user)
+  otps: UserOTP[];
 }

@@ -11,13 +11,13 @@ export class SigninController {
     const user = await userRepository.findOneBy({ email });
 
     if (!user) {
-      throw new BadRequestError("E-mail ou senha inválidos");
+      throw new BadRequestError("E-mail or password is invalid");
     }
 
     const verifyPass = await bcrypt.compare(password, user.password);
 
     if (!verifyPass) {
-      throw new BadRequestError("E-mail ou senha inválidos");
+      throw new BadRequestError("E-mail or password is invalid");
     }
 
     const token = jwt.sign({ id: user.id }, process.env.JWT_PASS ?? "", {
