@@ -5,10 +5,43 @@ import {
   userOtpRepository,
 } from "../repositories/userRepository";
 import bcrypt from "bcrypt";
-const nodemailer = require("nodemailer");
+import jwt from "jsonwebtoken";
+import nodemailer from "nodemailer";
 
-export class ForgotPassword {
-  async forgot(req: Request, res: Response) {
+export class AuthController {
+  async signIn(req: Request, res: Response) {
+    const { email, password } = req.body;
+
+    const user = await userRepository.findOneBy({ email });
+
+    if (!user) {
+      throw new BadRequestError("E-mail or password is invalid");
+    }
+
+    const verifyPass = await bcrypt.compare(password, user.password);
+
+    if (!verifyPass) {
+      throw new BadRequestError("E-mail or password is invalid");
+    }
+
+    const token = jwt.sign(
+      {
+        id: user.id,
+        role: user.role,
+      },
+      process.env.JWT_PASS ?? "",
+      { expiresIn: "7d" }
+    );
+
+    const { password: _, ...userLogin } = user;
+
+    return res.json({
+      user: userLogin,
+      token: token,
+    });
+  }
+
+  async forgotPassword(req: Request, res: Response) {
     const { email } = req.body;
 
     const user = await userRepository.findOneBy({ email });
@@ -122,5 +155,9 @@ export class ForgotPassword {
     await userOtpRepository.delete(userOtp.id);
 
     return res.json({ message: "Password reset successfully" });
+  }
+
+  async getProfile(req: Request, res: Response) {
+    return res.json(req.user);
   }
 }

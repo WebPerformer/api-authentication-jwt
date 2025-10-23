@@ -1,46 +1,41 @@
 import { Router } from "express";
-import { SigninController } from "./controllers/SigninController";
-import { SignupController } from "./controllers/SignupController";
-import { ForgotPassword } from "./controllers/ForgotPassword";
-import { GoogleAuthController } from "./controllers/GoogleAuthController";
-import {
-  UpdateUsername,
-  UpdatePassword,
-  UpdateProfileImage,
-  DeleteProfile,
-} from "./controllers/UpdateUser";
+import { AuthController } from "./controllers/AuthController";
+import { UserController } from "./controllers/UserController";
 import { CustomersController } from "./controllers/CustomersController";
 import { authMiddleware } from "./middlewares/authMiddleware";
+import { authorize } from "./middlewares/authorize";
+import { UserRole } from "./entities/User";
 
 const routes = Router();
 
 var cors = require("cors");
 routes.use(cors({ origin: "http://localhost:3000", credentials: true }));
-routes.use(
-  cors({
-    origin: "https://unthriving-kasha-subappressed.ngrok-free.dev",
-    credentials: true,
-  })
-);
 
-routes.post("/signup", new SignupController().create);
-routes.post("/signin", new SigninController().login);
-routes.post("/forgot-password", new ForgotPassword().forgot);
-routes.post("/validate-otp", new ForgotPassword().validateOtp);
-routes.post("/reset-password", new ForgotPassword().resetPassword);
-routes.get("/api/sessions/oauth/google", new GoogleAuthController().googleAuth);
+routes.post("/signin", new AuthController().signIn);
+routes.post("/forgot-password", new AuthController().forgotPassword);
+routes.post("/validate-otp", new AuthController().validateOtp);
+routes.post("/reset-password", new AuthController().resetPassword);
 
-routes.post("/customers", new CustomersController().create);
-routes.put("/customers/update", new CustomersController().update);
+routes.post("/customers", new CustomersController().createCustomer);
+routes.put("/customers/update", new CustomersController().updateCustomer);
 
 routes.use(authMiddleware);
 
-routes.get("/profile", new SigninController().getProfile);
-routes.delete("/profile", new DeleteProfile().delete);
-routes.put("/profile/image", new UpdateProfileImage().update);
-routes.put("/profile/username", new UpdateUsername().update);
-routes.put("/profile/password", new UpdatePassword().update);
+routes.get("/profile", new UserController().getProfile);
+routes.delete("/profile", new UserController().deleteProfile);
+routes.put("/profile/image", new UserController().updateProfileImage);
+routes.put("/profile/username", new UserController().changeUsernameProfile);
+routes.put("/profile/password", new UserController().changePasswordProfile);
 
-routes.get("/customers", new CustomersController().get);
+routes.get(
+  "/customers",
+  authorize(UserRole.ADMIN),
+  new CustomersController().getCustomers
+);
+routes.get("/customers/profile", new CustomersController().getCustomersProfile);
+routes.put(
+  "/subscriptions/cancel",
+  new CustomersController().cancelSubscription
+);
 
 export default routes;

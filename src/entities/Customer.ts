@@ -3,8 +3,10 @@ import {
   CreateDateColumn,
   Entity,
   PrimaryColumn,
+  ManyToOne,
   UpdateDateColumn,
 } from "typeorm";
+import { User } from "./User";
 
 @Entity("customers")
 export class Customer {
@@ -34,4 +36,7 @@ export class Customer {
 
   @UpdateDateColumn()
   updated_at: Date;
+
+  @ManyToOne(() => User, (user) => user.customers, { onDelete: "CASCADE" })
+  user: User;
 }
