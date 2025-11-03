@@ -2,6 +2,7 @@ import { Router } from "express";
 import { AuthController } from "./controllers/AuthController";
 import { UserController } from "./controllers/UserController";
 import { CustomersController } from "./controllers/CustomersController";
+import { ProductsController } from "./controllers/ProductsController";
 import { authMiddleware } from "./middlewares/authMiddleware";
 import { authorize } from "./middlewares/authorize";
 import { UserRole } from "./entities/User";
@@ -12,12 +13,16 @@ var cors = require("cors");
 routes.use(cors({ origin: "http://localhost:3000", credentials: true }));
 
 routes.post("/signin", new AuthController().signIn);
+routes.post("/signup", new AuthController().signUp);
+routes.get("/api/sessions/oauth/google", new AuthController().googleAuth);
 routes.post("/forgot-password", new AuthController().forgotPassword);
 routes.post("/validate-otp", new AuthController().validateOtp);
 routes.post("/reset-password", new AuthController().resetPassword);
 
 routes.post("/customers", new CustomersController().createCustomer);
 routes.put("/customers/update", new CustomersController().updateCustomer);
+
+routes.get("/products", new ProductsController().getProducts);
 
 routes.use(authMiddleware);
 
@@ -33,6 +38,7 @@ routes.get(
   new CustomersController().getCustomers
 );
 routes.get("/customers/profile", new CustomersController().getCustomersProfile);
+
 routes.put(
   "/subscriptions/cancel",
   new CustomersController().cancelSubscription

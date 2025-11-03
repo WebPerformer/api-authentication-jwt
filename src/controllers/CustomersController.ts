@@ -172,7 +172,6 @@ export class CustomersController {
         });
       }
 
-      // Buscar o customer pela subscription_id com validação de segurança
       let customer;
 
       if (userRole === UserRole.ADMIN) {
@@ -204,37 +203,45 @@ export class CustomersController {
         });
       }
 
-      // Configurar Stripe corretamente
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
         apiVersion: "2025-09-30.clover",
       });
 
-      // Cancelar no Stripe
-      const canceledSubscription = await stripe.subscriptions.cancel(
-        subscription_id
-      );
+      // Salvar estado anterior para possível rollback
+      const previousStatus = customer.status;
 
-      // Atualizar status no banco de dados
+      // 1. Primeiro atualiza localmente
       customer.status = false;
       customer.updated_at = new Date();
       await customerRepository.save(customer);
 
-      return res.json({
-        success: true,
-        data: {
-          message: "Subscription canceled successfully",
-          customer: {
-            customer_id: customer.customer_id,
-            name: customer.name,
-            status: customer.status,
-            subscription_id: customer.subscription_id,
+      try {
+        // 2. Depois cancela no Stripe
+        await stripe.subscriptions.cancel(subscription_id);
+
+        return res.json({
+          success: true,
+          data: {
+            message: "Subscription canceled successfully",
+            customer: {
+              customer_id: customer.customer_id,
+              name: customer.name,
+              status: false, // Já atualizado
+              subscription_id: customer.subscription_id,
+            },
           },
-        },
-      });
+        });
+      } catch (stripeError) {
+        // 3. Se Stripe falhar, reverte no banco
+        customer.status = previousStatus;
+        customer.updated_at = new Date();
+        await customerRepository.save(customer);
+
+        throw stripeError; // Propaga o erro
+      }
     } catch (error: any) {
       console.error("Error canceling subscription:", error);
 
-      // Tratar erros específicos do Stripe
       if (error.type && error.type.startsWith("Stripe")) {
         return res.status(400).json({
           success: false,
