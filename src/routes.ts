@@ -1,7 +1,6 @@
 import { Router } from "express";
 import { AuthController } from "./controllers/AuthController";
 import { UserController } from "./controllers/UserController";
-import { CustomersController } from "./controllers/CustomersController";
 import { ProductsController } from "./controllers/ProductsController";
 import { authMiddleware } from "./middlewares/authMiddleware";
 import { authorize } from "./middlewares/authorize";
@@ -12,36 +11,26 @@ const routes = Router();
 var cors = require("cors");
 routes.use(cors({ origin: "http://localhost:3000", credentials: true }));
 
-routes.post("/signin", new AuthController().signIn);
-routes.post("/signup", new AuthController().signUp);
+// 👇 AUTH ROUTES - Agrupadas
+routes.post("/auth/signin", new AuthController().signIn);
+routes.post("/auth/signup", new AuthController().signUp);
 routes.get("/api/sessions/oauth/google", new AuthController().googleAuth);
-routes.post("/forgot-password", new AuthController().forgotPassword);
-routes.post("/validate-otp", new AuthController().validateOtp);
-routes.post("/reset-password", new AuthController().resetPassword);
+routes.post("/auth/forgot-password", new AuthController().forgotPassword);
+routes.post("/auth/validate-otp", new AuthController().validateOtp);
+routes.post("/auth/reset-password", new AuthController().resetPassword);
 
-routes.post("/customers", new CustomersController().createCustomer);
-routes.put("/customers/update", new CustomersController().updateCustomer);
-
+// 👇 PUBLIC ROUTES
 routes.get("/products", new ProductsController().getProducts);
 
+// 👇 PROTECTED ROUTES (requer auth)
 routes.use(authMiddleware);
 
 routes.get("/profile", new UserController().getProfile);
 routes.delete("/profile", new UserController().deleteProfile);
-routes.put("/profile/image", new UserController().updateProfileImage);
-routes.put("/profile/username", new UserController().changeUsernameProfile);
-routes.put("/profile/password", new UserController().changePasswordProfile);
 
-routes.get(
-  "/customers",
-  authorize(UserRole.ADMIN),
-  new CustomersController().getCustomers
-);
-routes.get("/customers/profile", new CustomersController().getCustomersProfile);
-
-routes.put(
-  "/subscriptions/cancel",
-  new CustomersController().cancelSubscription
-);
+// 👇 PROFILE UPDATES - Mais RESTful
+routes.get("/users/me", new UserController().getProfile);
+routes.patch("/users/me", new UserController().updateProfile);
+routes.delete("/users/me", new UserController().deleteProfile);
 
 export default routes;

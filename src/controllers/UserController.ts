@@ -8,48 +8,46 @@ export class UserController {
     return res.json(req.user);
   }
 
-  async changeUsernameProfile(req: Request, res: Response) {
-    const { username } = req.body;
+  async updateProfile(req: Request, res: Response) {
+    const { username, profileImage, newPassword } = req.body;
+    const userId = req.user.id;
 
-    const user = await userRepository.findOneBy({ id: req.user.id });
-
-    if (!user) {
-      throw new BadRequestError("User not found");
-    }
-
-    await userRepository.update(user.id, { username });
-
-    return res.json({ message: "Username updated successfully" });
-  }
-
-  async updateProfileImage(req: Request, res: Response) {
-    const { profileImage } = req.body;
-
-    const user = await userRepository.findOneBy({ id: req.user.id });
+    const user = await userRepository.findOneBy({ id: userId });
 
     if (!user) {
       throw new BadRequestError("User not found");
     }
 
-    await userRepository.update(user.id, { profileImage });
+    const updateData: any = {};
 
-    return res.json({ message: "Avatar updated successfully" });
-  }
-
-  async changePasswordProfile(req: Request, res: Response) {
-    const { newPassword } = req.body;
-
-    const user = await userRepository.findOneBy({ id: req.user.id });
-
-    if (!user) {
-      throw new BadRequestError("User not found");
+    // 👇 Atualiza apenas os campos que foram enviados
+    if (username !== undefined) {
+      updateData.username = username;
     }
 
-    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    if (profileImage !== undefined) {
+      updateData.profileImage = profileImage;
+    }
 
-    await userRepository.update(user.id, { password: hashedNewPassword });
+    if (newPassword !== undefined) {
+      updateData.password = await bcrypt.hash(newPassword, 10);
+    }
 
-    return res.json({ message: "Password updated successfully" });
+    // 👇 Se não enviou nenhum campo para atualizar
+    if (Object.keys(updateData).length === 0) {
+      throw new BadRequestError("No fields to update");
+    }
+
+    await userRepository.update(userId!, updateData);
+
+    // 👇 Buscar usuário atualizado para retornar
+    const updatedUser = await userRepository.findOneBy({ id: userId });
+    const { password: _, ...userWithoutPassword } = updatedUser!;
+
+    return res.json({
+      message: "Profile updated successfully",
+      user: userWithoutPassword,
+    });
   }
 
   async deleteProfile(req: Request, res: Response) {

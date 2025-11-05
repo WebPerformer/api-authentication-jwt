@@ -1,6 +1,5 @@
 import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { UserOTP } from "./UserOtp";
-import { Customer } from "./Customer"; // 👈 Importa a entidade Customer
 
 export enum UserRole {
   ADMIN = "admin",
@@ -33,7 +32,4 @@ export class User {
 
   @OneToMany(() => UserOTP, (otp) => otp.user)
   otps: UserOTP[];
-
-  @OneToMany(() => Customer, (customer) => customer.user)
-  customers: Customer[];
 }
