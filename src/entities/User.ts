@@ -1,5 +1,12 @@
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
+import {
+  Column,
+  Entity,
+  OneToOne,
+  OneToMany,
+  PrimaryGeneratedColumn,
+} from "typeorm";
 import { UserOTP } from "./UserOtp";
+import { UserConfig } from "./UserConfig";
 
 export enum UserRole {
   ADMIN = "admin",
@@ -32,4 +39,11 @@ export class User {
 
   @OneToMany(() => UserOTP, (otp) => otp.user)
   otps: UserOTP[];
+
+  // 👇 NOVA RELAÇÃO COM USERCONFIG
+  @OneToOne(() => UserConfig, (userConfig) => userConfig.user, {
+    cascade: true,
+    eager: true,
+  })
+  config: UserConfig;
 }

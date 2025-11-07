@@ -1,10 +1,13 @@
 import { Router } from "express";
 import { AuthController } from "./controllers/AuthController";
 import { UserController } from "./controllers/UserController";
-import { ProductsController } from "./controllers/ProductsController";
+import { TemplateController } from "./controllers/TemplateController";
+import { UserConfigController } from "./controllers/UserConfigController";
+import { WebhookController } from "./controllers/WebhookController";
 import { authMiddleware } from "./middlewares/authMiddleware";
 import { authorize } from "./middlewares/authorize";
 import { UserRole } from "./entities/User";
+import { PaymentController } from "./controllers/PaymentController";
 
 const routes = Router();
 
@@ -20,7 +23,7 @@ routes.post("/auth/validate-otp", new AuthController().validateOtp);
 routes.post("/auth/reset-password", new AuthController().resetPassword);
 
 // 👇 PUBLIC ROUTES
-routes.get("/products", new ProductsController().getProducts);
+routes.post("/webhooks/stripe", new WebhookController().handleWebhook);
 
 // 👇 PROTECTED ROUTES (requer auth)
 routes.use(authMiddleware);
@@ -28,9 +31,34 @@ routes.use(authMiddleware);
 routes.get("/profile", new UserController().getProfile);
 routes.delete("/profile", new UserController().deleteProfile);
 
-// 👇 PROFILE UPDATES - Mais RESTful
+// 👇 PROFILE UPDATES
 routes.get("/users/me", new UserController().getProfile);
 routes.patch("/users/me", new UserController().updateProfile);
 routes.delete("/users/me", new UserController().deleteProfile);
+
+// 👇 TEMPLATES ROUTES
+routes.get("/templates", new TemplateController().getTemplates);
+routes.get("/templates/:id", new TemplateController().getTemplateById);
+
+// 👇 USER CONFIG ROUTES
+routes.get("/user/config", new UserConfigController().getUserConfig);
+routes.patch("/user/config", new UserConfigController().updateUserConfig);
+routes.post(
+  "/user/config/activate-template",
+  new UserConfigController().activateTemplate
+);
+
+routes.post(
+  "/payment/create-intent",
+  new PaymentController().createPaymentIntent
+);
+routes.post(
+  "/payment/create-subscription",
+  new PaymentController().createSubscription
+);
+routes.post(
+  "/payment/confirm-payment",
+  new PaymentController().confirmOneTimePayment
+);
 
 export default routes;
