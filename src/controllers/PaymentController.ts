@@ -126,25 +126,19 @@ export class PaymentController {
     }
   }
 
+  // PaymentController.ts - Modificar o método createSubscription
+
   async createSubscription(req: Request, res: Response) {
     try {
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-
       const { price_id, payment_method_id, product_id } = req.body;
       const userId = req.user.id;
 
-      // 👇 VALIDAÇÃO: Verificar se price_id é válido (deve começar com "price_")
-      if (!price_id || typeof price_id !== "string") {
+      // 👇 VALIDAÇÃO do price_id
+      if (!price_id || !price_id.startsWith("price_")) {
         return res.status(400).json({
           success: false,
-          error: "Price ID is required",
-        });
-      }
-
-      if (!price_id.startsWith("price_")) {
-        return res.status(400).json({
-          success: false,
-          error: `Invalid price ID format. Expected a price ID (starts with "price_"), but received: ${price_id}. If you have a product ID, you need to fetch the associated price ID first.`,
+          error: "Invalid price ID",
         });
       }
 
@@ -160,42 +154,84 @@ export class PaymentController {
         });
       }
 
-      // Anexar payment method ao customer
+      const customerId = user.config.stripe_customer_id;
+
+      // 👇 ANEXAR payment method ao customer
       await stripe.paymentMethods.attach(payment_method_id, {
-        customer: user.config.stripe_customer_id,
+        customer: customerId,
       });
 
-      // Definir como payment method padrão
-      await stripe.customers.update(user.config.stripe_customer_id, {
+      // 👇 DEFINIR como payment method padrão
+      await stripe.customers.update(customerId, {
         invoice_settings: {
           default_payment_method: payment_method_id,
         },
       });
 
-      // Criar assinatura
-      const subscription = await stripe.subscriptions.create({
-        customer: user.config.stripe_customer_id,
-        items: [{ price: price_id }],
-        metadata: {
-          user_id: userId,
-          ...(product_id && { product_id }),
-        },
-        expand: ["latest_invoice.payment_intent"],
+      // 👇 VERIFICAR SE JÁ EXISTE ASSINATURA ATIVA
+      const existingSubscriptions = await stripe.subscriptions.list({
+        customer: customerId,
+        status: "active",
+        limit: 1,
       });
+
+      let subscription;
+
+      if (existingSubscriptions.data.length > 0) {
+        // 👇 FAZER UPGRADE da assinatura existente
+        const existingSubscription = existingSubscriptions.data[0];
+
+        subscription = await stripe.subscriptions.update(
+          existingSubscription.id,
+          {
+            items: [
+              {
+                id: existingSubscription.items.data[0].id, // ID do item atual
+                price: price_id, // Novo price
+              },
+            ],
+            proration_behavior: "create_prorations", // Ajuste proporcional
+            metadata: {
+              user_id: userId,
+              ...(product_id && { product_id }),
+              upgraded_from: existingSubscription.items.data[0].price.id, // Registrar upgrade
+            },
+            expand: ["latest_invoice.payment_intent"],
+          }
+        );
+
+        console.log(
+          `🔄 Subscription upgraded from ${existingSubscription.items.data[0].price.id} to ${price_id}`
+        );
+      } else {
+        // 👇 CRIAR NOVA ASSINATURA (usuário não tinha nenhuma)
+        subscription = await stripe.subscriptions.create({
+          customer: customerId,
+          items: [{ price: price_id }],
+          metadata: {
+            user_id: userId,
+            ...(product_id && { product_id }),
+          },
+          expand: ["latest_invoice.payment_intent"],
+        });
+
+        console.log(`✅ New subscription created: ${subscription.id}`);
+      }
 
       return res.json({
         success: true,
         subscription_id: subscription.id,
         status: subscription.status,
+        // 👇 INFORMAR SE FOI UPGRADE OU NOVA ASSINATURA
+        action: existingSubscriptions.data.length > 0 ? "upgraded" : "created",
       });
     } catch (error: any) {
-      console.error("Error creating subscription:", error);
+      console.error("Error in createSubscription:", error);
 
-      // 👇 MELHOR TRATAMENTO DE ERRO PARA RECURSOS NÃO ENCONTRADOS
       if (error.code === "resource_missing") {
         return res.status(400).json({
           success: false,
-          error: `Stripe resource not found: ${error.message}. Please check if the price ID is correct.`,
+          error: `Stripe resource not found: ${error.message}`,
         });
       }
 
