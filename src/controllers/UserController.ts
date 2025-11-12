@@ -20,7 +20,7 @@ export class UserController {
 
     const updateData: any = {};
 
-    // 👇 Atualiza apenas os campos que foram enviados
+    // Atualiza apenas os campos que foram enviados
     if (username !== undefined) {
       updateData.username = username;
     }
@@ -33,14 +33,14 @@ export class UserController {
       updateData.password = await bcrypt.hash(newPassword, 10);
     }
 
-    // 👇 Se não enviou nenhum campo para atualizar
+    // Se não enviou nenhum campo para atualizar
     if (Object.keys(updateData).length === 0) {
       throw new BadRequestError("No fields to update");
     }
 
     await userRepository.update(userId!, updateData);
 
-    // 👇 Buscar usuário atualizado para retornar
+    // Buscar usuário atualizado para retornar
     const updatedUser = await userRepository.findOneBy({ id: userId });
     const { password: _, ...userWithoutPassword } = updatedUser!;
 

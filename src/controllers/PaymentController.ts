@@ -33,7 +33,7 @@ export class PaymentController {
         const customer = await stripe.customers.create(customerParams);
         customerId = customer.id;
 
-        // 👇 CORRIGIR A FORMA DE SALVAR NO BANCO
+        // CORRIGIR A FORMA DE SALVAR NO BANCO
         if (user) {
           // Verificar se já existe UserConfig
           let userConfig = await userRepository.manager
@@ -71,7 +71,7 @@ export class PaymentController {
       }
 
       if (mode === "payment") {
-        // 👇 PAYMENT INTENT para compra única
+        // PAYMENT INTENT para compra única
         // Buscar o preço para pegar o amount
         const price = await stripe.prices.retrieve(price_id);
 
@@ -97,7 +97,7 @@ export class PaymentController {
         });
         clientSecret = intent.client_secret;
       } else {
-        // 👇 SETUP INTENT para assinatura
+        // SETUP INTENT para assinatura
         intent = await stripe.setupIntents.create({
           customer: customerId,
           payment_method_types: ["card"],
@@ -134,7 +134,7 @@ export class PaymentController {
       const { price_id, payment_method_id, product_id } = req.body;
       const userId = req.user.id;
 
-      // 👇 VALIDAÇÃO do price_id
+      // VALIDAÇÃO do price_id
       if (!price_id || !price_id.startsWith("price_")) {
         return res.status(400).json({
           success: false,
@@ -156,19 +156,19 @@ export class PaymentController {
 
       const customerId = user.config.stripe_customer_id;
 
-      // 👇 ANEXAR payment method ao customer
+      // ANEXAR payment method ao customer
       await stripe.paymentMethods.attach(payment_method_id, {
         customer: customerId,
       });
 
-      // 👇 DEFINIR como payment method padrão
+      // DEFINIR como payment method padrão
       await stripe.customers.update(customerId, {
         invoice_settings: {
           default_payment_method: payment_method_id,
         },
       });
 
-      // 👇 VERIFICAR SE JÁ EXISTE ASSINATURA ATIVA
+      // VERIFICAR SE JÁ EXISTE ASSINATURA ATIVA
       const existingSubscriptions = await stripe.subscriptions.list({
         customer: customerId,
         status: "active",
@@ -178,7 +178,7 @@ export class PaymentController {
       let subscription;
 
       if (existingSubscriptions.data.length > 0) {
-        // 👇 FAZER UPGRADE da assinatura existente
+        // FAZER UPGRADE da assinatura existente
         const existingSubscription = existingSubscriptions.data[0];
 
         subscription = await stripe.subscriptions.update(
@@ -204,7 +204,7 @@ export class PaymentController {
           `🔄 Subscription upgraded from ${existingSubscription.items.data[0].price.id} to ${price_id}`
         );
       } else {
-        // 👇 CRIAR NOVA ASSINATURA (usuário não tinha nenhuma)
+        // CRIAR NOVA ASSINATURA (usuário não tinha nenhuma)
         subscription = await stripe.subscriptions.create({
           customer: customerId,
           items: [{ price: price_id }],
@@ -222,7 +222,7 @@ export class PaymentController {
         success: true,
         subscription_id: subscription.id,
         status: subscription.status,
-        // 👇 INFORMAR SE FOI UPGRADE OU NOVA ASSINATURA
+        // INFORMAR SE FOI UPGRADE OU NOVA ASSINATURA
         action: existingSubscriptions.data.length > 0 ? "upgraded" : "created",
       });
     } catch (error: any) {

@@ -26,7 +26,7 @@ export class TemplateController {
       // Formatar templates combinando produtos com seus prices
       const templates = await Promise.all(
         products.data.map(async (product) => {
-          // 👇 ENCONTRAR O PRICE CORRETO PARA ESTE PRODUTO
+          // ENCONTRAR O PRICE CORRETO PARA ESTE PRODUTO
           const productPrices = prices.data.filter(
             (price) => price.product === product.id
           );

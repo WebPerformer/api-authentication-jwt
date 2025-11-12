@@ -14,7 +14,7 @@ const routes = Router();
 var cors = require("cors");
 routes.use(cors({ origin: "http://localhost:3000", credentials: true }));
 
-// 👇 AUTH ROUTES - Agrupadas
+// AUTH ROUTES - Agrupadas
 routes.post("/auth/signin", new AuthController().signIn);
 routes.post("/auth/signup", new AuthController().signUp);
 routes.get("/api/sessions/oauth/google", new AuthController().googleAuth);
@@ -22,25 +22,25 @@ routes.post("/auth/forgot-password", new AuthController().forgotPassword);
 routes.post("/auth/validate-otp", new AuthController().validateOtp);
 routes.post("/auth/reset-password", new AuthController().resetPassword);
 
-// 👇 PUBLIC ROUTES
+// PUBLIC ROUTES
 routes.post("/webhooks/stripe", new WebhookController().handleWebhook);
 
-// 👇 PROTECTED ROUTES (requer auth)
+// PROTECTED ROUTES (requer auth)
 routes.use(authMiddleware);
 
 routes.get("/profile", new UserController().getProfile);
 routes.delete("/profile", new UserController().deleteProfile);
 
-// 👇 PROFILE UPDATES
+// PROFILE UPDATES
 routes.get("/users/me", new UserController().getProfile);
 routes.patch("/users/me", new UserController().updateProfile);
 routes.delete("/users/me", new UserController().deleteProfile);
 
-// 👇 TEMPLATES ROUTES
+// TEMPLATES ROUTES
 routes.get("/templates", new TemplateController().getTemplates);
 routes.get("/templates/:id", new TemplateController().getTemplateById);
 
-// 👇 USER CONFIG ROUTES
+// USER CONFIG ROUTES
 routes.get("/user/config", new UserConfigController().getUserConfig);
 routes.patch("/user/config", new UserConfigController().updateUserConfig);
 routes.post(

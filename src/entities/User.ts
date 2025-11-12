@@ -40,7 +40,7 @@ export class User {
   @OneToMany(() => UserOTP, (otp) => otp.user)
   otps: UserOTP[];
 
-  // 👇 NOVA RELAÇÃO COM USERCONFIG
+  // NOVA RELAÇÃO COM USERCONFIG
   @OneToOne(() => UserConfig, (userConfig) => userConfig.user, {
     cascade: true,
     eager: true,
