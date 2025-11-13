@@ -12,7 +12,7 @@ export class UserConfigController {
 
       const user = await userRepository.findOne({
         where: { id: userId },
-        relations: ["config"],
+        relations: ["config", "config.categories"],
       });
 
       if (!user) {
@@ -30,9 +30,22 @@ export class UserConfigController {
         user.config = newConfig;
       }
 
+      // Formatar resposta para manter compatibilidade com frontend
+      const responseData = {
+        ...user.config,
+        template_data: {
+          url: user.config.template_url || "",
+          description: user.config.description || "",
+          instagram: user.config.instagram || "",
+          twitter: user.config.twitter || "",
+          whatsapp: user.config.whatsapp || "",
+          categories: user.config.categories || [],
+        },
+      };
+
       return res.json({
         success: true,
-        data: user!.config,
+        data: responseData,
       });
     } catch (error) {
       console.error("Error fetching user config:", error);
@@ -46,15 +59,21 @@ export class UserConfigController {
   async updateUserConfig(req: Request, res: Response) {
     try {
       const accessService = new AccessService();
-
       const userId = req.user.id;
-      const { selected_template_id, portfolio_data, is_portfolio_configured } =
+      const { selected_template_id, template_data, is_template_configured } =
         req.body;
+
+      console.log("=== UPDATE USER CONFIG ===");
+      console.log("User ID:", userId);
+      console.log("Request body:", JSON.stringify(req.body, null, 2));
 
       const user = await userRepository.findOne({
         where: { id: userId },
-        relations: ["config"],
+        relations: ["config", "config.categories"],
       });
+
+      console.log("User found:", !!user);
+      console.log("User config:", user?.config);
 
       if (!user?.config) {
         throw new BadRequestError("User config not found");
@@ -78,24 +97,99 @@ export class UserConfigController {
         updateData.selected_template_id = selected_template_id;
       }
 
-      if (portfolio_data !== undefined) {
-        updateData.portfolio_data = portfolio_data;
+      // Atualizar campos básicos do UserConfig
+      if (template_data?.url !== undefined) {
+        updateData.template_url = template_data.url;
+      }
+      if (template_data?.description !== undefined) {
+        updateData.description = template_data.description;
+      }
+      if (template_data?.instagram !== undefined) {
+        updateData.instagram = template_data.instagram;
+      }
+      if (template_data?.twitter !== undefined) {
+        updateData.twitter = template_data.twitter;
+      }
+      if (template_data?.whatsapp !== undefined) {
+        updateData.whatsapp = template_data.whatsapp;
       }
 
-      if (is_portfolio_configured !== undefined) {
-        updateData.is_portfolio_configured = is_portfolio_configured;
+      if (is_template_configured !== undefined) {
+        updateData.is_template_configured = is_template_configured;
       }
 
-      await userRepository.manager
-        .getRepository("user_configs")
-        .update({ id: user.config.id }, updateData);
+      console.log("Update data to save:", JSON.stringify(updateData, null, 2));
 
-      // Buscar config atualizada
+      // Atualizar UserConfig
+      if (Object.keys(updateData).length > 0) {
+        await userRepository.manager
+          .getRepository("user_configs")
+          .update({ id: user.config.id }, updateData);
+      }
+
+      // PROCESSAR CATEGORIAS DIRETAMENTE NO MÉTODO
+      if (template_data?.categories) {
+        const categoryRepo = userRepository.manager.getRepository(
+          "template_categories"
+        );
+
+        // Buscar categorias existentes
+        const existingCategories = await categoryRepo.find({
+          where: { userConfigId: user.config.id },
+        });
+
+        console.log("Existing categories:", existingCategories.length);
+        console.log("New categories:", template_data.categories.length);
+
+        // Para cada categoria recebida
+        for (const categoryData of template_data.categories) {
+          if (categoryData.id && categoryData.id.startsWith("category-")) {
+            // Nova categoria - criar
+            const newCategory = categoryRepo.create({
+              name: categoryData.name,
+              images: categoryData.images,
+              userConfigId: user.config.id,
+            });
+            await categoryRepo.save(newCategory);
+            console.log("Created new category:", newCategory.id);
+          } else {
+            // Categoria existente - atualizar
+            const existingCategory = existingCategories.find(
+              (cat) => cat.id === categoryData.id
+            );
+            if (existingCategory) {
+              await categoryRepo.update(existingCategory.id, {
+                name: categoryData.name,
+                images: categoryData.images,
+              });
+              console.log("Updated category:", existingCategory.id);
+            }
+          }
+        }
+
+        // Deletar categorias que não estão mais na lista
+        const receivedCategoryIds = template_data.categories
+          .map((cat: any) => cat.id)
+          .filter((id: string) => !id.startsWith("category-"));
+        const categoriesToDelete = existingCategories.filter(
+          (cat) => !receivedCategoryIds.includes(cat.id)
+        );
+
+        for (const categoryToDelete of categoriesToDelete) {
+          await categoryRepo.delete(categoryToDelete.id);
+          console.log("Deleted category:", categoryToDelete.id);
+        }
+      }
+
+      // Buscar config atualizada com categorias
       const updatedConfig = await userRepository.manager
         .getRepository("user_configs")
-        .findOneBy({
-          id: user.config.id,
+        .findOne({
+          where: { id: user.config.id },
+          relations: ["categories"],
         });
+
+      console.log("Updated config:", updatedConfig);
 
       return res.json({
         success: true,
@@ -103,7 +197,10 @@ export class UserConfigController {
         message: "Config updated successfully",
       });
     } catch (error: any) {
-      console.error("Error updating user config:", error);
+      console.error("=== ERROR IN updateUserConfig ===");
+      console.error("Error name:", error.name);
+      console.error("Error message:", error.message);
+      console.error("Error stack:", error.stack);
 
       if (error instanceof BadRequestError) {
         return res.status(400).json({
@@ -112,9 +209,10 @@ export class UserConfigController {
         });
       }
 
+      const errorMessage = error.message || "Internal server error";
       return res.status(500).json({
         success: false,
-        error: "Internal server error",
+        error: errorMessage,
       });
     }
   }
