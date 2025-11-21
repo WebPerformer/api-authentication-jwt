@@ -25,6 +25,8 @@ routes.post("/auth/reset-password", new AuthController().resetPassword);
 // PUBLIC ROUTES
 routes.post("/webhooks/stripe", new WebhookController().handleWebhook);
 
+routes.post("/users/by-slug", new UserConfigController().getUserBySlug);
+
 // PROTECTED ROUTES (requer auth)
 routes.use(authMiddleware);
 

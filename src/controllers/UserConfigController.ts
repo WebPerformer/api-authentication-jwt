@@ -272,4 +272,62 @@ export class UserConfigController {
       });
     }
   }
+
+  async getUserBySlug(req: Request, res: Response) {
+    try {
+      const { slug } = req.body;
+
+      console.log("=== GET USER BY SLUG ===");
+      console.log("Slug received:", slug);
+
+      // Buscar pelo template_url
+      const userConfig = await userRepository.manager
+        .getRepository("user_configs")
+        .findOne({
+          where: { template_url: slug },
+          relations: ["user", "categories"],
+        });
+
+      if (!userConfig) {
+        return res.status(404).json({
+          success: false,
+          error: "User not found",
+        });
+      }
+
+      // Resposta simplificada - sem buscar template
+      const response = {
+        id: userConfig.user.id,
+        username: userConfig.user.username,
+        email: userConfig.user.email,
+        profileImage: userConfig.user.profileImage,
+        role: userConfig.user.role,
+        config: {
+          id: userConfig.id,
+          selected_template_id: userConfig.selected_template_id,
+          template_url: userConfig.template_url,
+          description: userConfig.description,
+          instagram: userConfig.instagram,
+          twitter: userConfig.twitter,
+          whatsapp: userConfig.whatsapp,
+          is_template_configured: userConfig.is_template_configured,
+          categories: userConfig.categories || [],
+        },
+      };
+
+      return res.json({
+        success: true,
+        data: {
+          user: response,
+          // templateInfo pode ser omitido ou ser um objeto simples
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching user by slug:", error);
+      return res.status(500).json({
+        success: false,
+        error: "Internal server error",
+      });
+    }
+  }
 }
