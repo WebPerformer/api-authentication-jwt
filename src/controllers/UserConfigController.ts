@@ -124,39 +124,72 @@ export class UserConfigController {
           "template_categories"
         );
 
-        // Buscar categorias existentes
+        // Buscar TODAS as categorias existentes deste usuário
         const existingCategories = await categoryRepo.find({
           where: { userConfigId: user.config.id },
         });
 
-        // Para cada categoria recebida
+        // Para cada categoria recebida do frontend
         for (const categoryData of template_data.categories) {
+          // Processar imagens
+          const processedImages =
+            categoryData.images?.map((img: any) => ({
+              url: img.url || "",
+              filename: img.filename || "",
+              key: img.key || "",
+              uploaded_at: img.uploaded_at || new Date(),
+              size: img.size || 0,
+              metadata: img.metadata || {},
+            })) || [];
+
+          // Verificar se é uma nova categoria (ID começa com "category-")
           if (categoryData.id && categoryData.id.startsWith("category-")) {
-            // Nova categoria - criar
-            const newCategory = categoryRepo.create({
-              name: categoryData.name,
-              images: categoryData.images,
-              userConfigId: user.config.id,
-            });
-            await categoryRepo.save(newCategory);
+            // É uma nova categoria - verificar se realmente não existe
+            const categoryExists = existingCategories.some(
+              (cat) => cat.id === categoryData.id
+            );
+
+            if (categoryExists) {
+              // Se já existe, atualiza
+              await categoryRepo.update(categoryData.id, {
+                name: categoryData.name,
+                images: processedImages,
+                updated_at: new Date(),
+              });
+            } else {
+              // Se não existe, cria nova
+              const newCategory = categoryRepo.create({
+                id: categoryData.id,
+                name: categoryData.name,
+                images: processedImages,
+                userConfigId: user.config.id,
+                created_at: new Date(),
+                updated_at: new Date(),
+              });
+              await categoryRepo.save(newCategory);
+            }
           } else {
-            // Categoria existente - atualizar
+            // Categoria existente (tem UUID ou outro ID)
             const existingCategory = existingCategories.find(
               (cat) => cat.id === categoryData.id
             );
+
             if (existingCategory) {
               await categoryRepo.update(existingCategory.id, {
                 name: categoryData.name,
-                images: categoryData.images,
+                images: processedImages,
+                updated_at: new Date(),
               });
             }
           }
         }
 
         // Deletar categorias que não estão mais na lista
-        const receivedCategoryIds = template_data.categories
-          .map((cat: any) => cat.id)
-          .filter((id: string) => !id.startsWith("category-"));
+        // (categorias que existem no banco mas não foram enviadas pelo frontend)
+        const receivedCategoryIds = template_data.categories.map(
+          (cat: any) => cat.id
+        );
+
         const categoriesToDelete = existingCategories.filter(
           (cat) => !receivedCategoryIds.includes(cat.id)
         );

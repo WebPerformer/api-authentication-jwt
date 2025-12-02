@@ -1,9 +1,9 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from "typeorm";
+import { Entity, Column, ManyToOne, PrimaryColumn } from "typeorm";
 import { UserConfig } from "./UserConfig";
 
 @Entity("template_categories")
 export class TemplateCategory {
-  @PrimaryGeneratedColumn("uuid")
+  @PrimaryColumn()
   id: string;
 
   @Column()
