@@ -31,7 +31,7 @@ export class TemplateCategory {
 export interface TemplateImage {
   url: string;
   filename: string;
-  key: string; // Identificador único no Cloudflare
+  key: string;
   uploaded_at: Date;
   size: number;
   metadata?: {

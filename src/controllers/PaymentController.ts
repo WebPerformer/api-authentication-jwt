@@ -56,7 +56,6 @@ export class PaymentController {
           await userRepository.manager
             .getRepository("user_configs")
             .save(userConfig);
-          console.log("✅ Customer ID saved to database:", customerId);
         }
       }
 
@@ -199,10 +198,6 @@ export class PaymentController {
             expand: ["latest_invoice.payment_intent"],
           }
         );
-
-        console.log(
-          `🔄 Subscription upgraded from ${existingSubscription.items.data[0].price.id} to ${price_id}`
-        );
       } else {
         // CRIAR NOVA ASSINATURA (usuário não tinha nenhuma)
         subscription = await stripe.subscriptions.create({
@@ -214,8 +209,6 @@ export class PaymentController {
           },
           expand: ["latest_invoice.payment_intent"],
         });
-
-        console.log(`✅ New subscription created: ${subscription.id}`);
       }
 
       return res.json({

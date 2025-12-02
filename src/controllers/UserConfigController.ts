@@ -63,17 +63,10 @@ export class UserConfigController {
       const { selected_template_id, template_data, is_template_configured } =
         req.body;
 
-      console.log("=== UPDATE USER CONFIG ===");
-      console.log("User ID:", userId);
-      console.log("Request body:", JSON.stringify(req.body, null, 2));
-
       const user = await userRepository.findOne({
         where: { id: userId },
         relations: ["config", "config.categories"],
       });
-
-      console.log("User found:", !!user);
-      console.log("User config:", user?.config);
 
       if (!user?.config) {
         throw new BadRequestError("User config not found");
@@ -118,8 +111,6 @@ export class UserConfigController {
         updateData.is_template_configured = is_template_configured;
       }
 
-      console.log("Update data to save:", JSON.stringify(updateData, null, 2));
-
       // Atualizar UserConfig
       if (Object.keys(updateData).length > 0) {
         await userRepository.manager
@@ -138,9 +129,6 @@ export class UserConfigController {
           where: { userConfigId: user.config.id },
         });
 
-        console.log("Existing categories:", existingCategories.length);
-        console.log("New categories:", template_data.categories.length);
-
         // Para cada categoria recebida
         for (const categoryData of template_data.categories) {
           if (categoryData.id && categoryData.id.startsWith("category-")) {
@@ -151,7 +139,6 @@ export class UserConfigController {
               userConfigId: user.config.id,
             });
             await categoryRepo.save(newCategory);
-            console.log("Created new category:", newCategory.id);
           } else {
             // Categoria existente - atualizar
             const existingCategory = existingCategories.find(
@@ -162,7 +149,6 @@ export class UserConfigController {
                 name: categoryData.name,
                 images: categoryData.images,
               });
-              console.log("Updated category:", existingCategory.id);
             }
           }
         }
@@ -177,7 +163,6 @@ export class UserConfigController {
 
         for (const categoryToDelete of categoriesToDelete) {
           await categoryRepo.delete(categoryToDelete.id);
-          console.log("Deleted category:", categoryToDelete.id);
         }
       }
 
@@ -188,8 +173,6 @@ export class UserConfigController {
           where: { id: user.config.id },
           relations: ["categories"],
         });
-
-      console.log("Updated config:", updatedConfig);
 
       return res.json({
         success: true,
@@ -277,14 +260,19 @@ export class UserConfigController {
     try {
       const { slug } = req.body;
 
-      console.log("=== GET USER BY SLUG ===");
-      console.log("Slug received:", slug);
+      if (!slug) {
+        return res.status(400).json({
+          success: false,
+          error: "Slug is required",
+        });
+      }
 
-      // Buscar pelo template_url
       const userConfig = await userRepository.manager
         .getRepository("user_configs")
         .findOne({
-          where: { template_url: slug },
+          where: {
+            template_url: slug,
+          },
           relations: ["user", "categories"],
         });
 
@@ -295,8 +283,28 @@ export class UserConfigController {
         });
       }
 
-      // Resposta simplificada - sem buscar template
-      const response = {
+      if (!userConfig.selected_template_id) {
+        return res.status(403).json({
+          success: false,
+          error: "Template access denied - no template selected",
+        });
+      }
+
+      const accessService = new AccessService();
+      const hasAccess = await accessService.canUseTemplate(
+        userConfig.user.id,
+        userConfig.selected_template_id
+      );
+
+      if (!hasAccess) {
+        return res.status(403).json({
+          success: false,
+          error: "Template access denied",
+        });
+      }
+
+      // Formatar a resposta do usuário
+      const userResponse = {
         id: userConfig.user.id,
         username: userConfig.user.username,
         email: userConfig.user.email,
@@ -318,8 +326,7 @@ export class UserConfigController {
       return res.json({
         success: true,
         data: {
-          user: response,
-          // templateInfo pode ser omitido ou ser um objeto simples
+          user: userResponse,
         },
       });
     } catch (error) {

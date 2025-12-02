@@ -44,7 +44,6 @@ export class WebhookService {
 
     if (user) {
       // Lógica para atualizar status da assinatura
-      console.log(`Subscription ${subscription.status} for user ${user.id}`);
     }
   }
 
@@ -56,9 +55,6 @@ export class WebhookService {
     });
 
     if (user && payment.metadata.product_id) {
-      console.log(
-        `One-time purchase successful for template ${payment.metadata.product_id}`
-      );
     }
   }
 
