@@ -211,12 +211,45 @@ export class PaymentController {
         });
       }
 
+      // Verificar status do pagamento para informar ao frontend
+      const latestInvoice =
+        subscription.latest_invoice as Stripe.Invoice | null;
+
+      // payment_intent pode ser uma string (ID) ou um objeto expandido
+      // Usar indexação porque o TypeScript pode não reconhecer a propriedade
+      let paymentIntentStatus: string | null = null;
+
+      if (latestInvoice) {
+        const paymentIntentValue = (latestInvoice as any).payment_intent;
+        if (paymentIntentValue) {
+          // Verificar se é um objeto (expandido) ou string (ID)
+          if (
+            typeof paymentIntentValue === "object" &&
+            "status" in paymentIntentValue
+          ) {
+            // Se foi expandido, é um objeto PaymentIntent
+            paymentIntentStatus = (paymentIntentValue as Stripe.PaymentIntent)
+              .status;
+          }
+          // Se for string, não temos o status sem buscar, mas o status da subscription já indica
+        }
+      }
+
+      // Determinar se o pagamento está pendente
+      const isPaymentPending =
+        subscription.status === "incomplete" ||
+        subscription.status === "incomplete_expired" ||
+        paymentIntentStatus === "requires_action";
+
       return res.json({
         success: true,
         subscription_id: subscription.id,
         status: subscription.status,
         // INFORMAR SE FOI UPGRADE OU NOVA ASSINATURA
         action: existingSubscriptions.data.length > 0 ? "upgraded" : "created",
+        // Informar se o pagamento está pendente
+        payment_pending: isPaymentPending,
+        payment_intent_status: paymentIntentStatus,
       });
     } catch (error: any) {
       console.error("Error in createSubscription:", error);
@@ -263,6 +296,105 @@ export class PaymentController {
       return res.status(500).json({
         success: false,
         error: "Internal server error",
+      });
+    }
+  }
+
+  /**
+   * Inicia fluxo de troca de método de pagamento (cartão) - retorna SetupIntent
+   * POST /payment/create-setup-intent
+   */
+  async createSetupIntent(req: Request, res: Response) {
+    try {
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+      const userId = req.user.id;
+
+      // Buscar usuário para pegar customer_id
+      const user = await userRepository.findOne({
+        where: { id: userId },
+        relations: ["config"],
+      });
+      const customerId = user?.config?.stripe_customer_id;
+      if (!customerId) {
+        return res
+          .status(400)
+          .json({ error: "Cliente Stripe não encontrado." });
+      }
+
+      const params: any = {
+        payment_method_types: ["card"],
+        metadata: { user_id: userId, type: "update_payment_method" },
+      };
+      if (customerId) params.customer = customerId;
+      const intent = await stripe.setupIntents.create(params);
+
+      res.json({ success: true, client_secret: intent.client_secret });
+    } catch (error: any) {
+      console.error(
+        "Erro ao criar SetupIntent para troca de pagamento:",
+        error
+      );
+      res
+        .status(500)
+        .json({ error: error.message || "Erro interno ao criar SetupIntent." });
+    }
+  }
+
+  /**
+   * Atualiza o método de pagamento principal do usuário (cartão) no Stripe
+   * POST /payment/update-payment-method { payment_method_id }
+   */
+  async updatePaymentMethod(req: Request, res: Response) {
+    try {
+      const { payment_method_id } = req.body;
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+      const userId = req.user.id;
+
+      if (!payment_method_id) {
+        return res
+          .status(400)
+          .json({ error: "payment_method_id obrigatório." });
+      }
+
+      // Buscar usuário para pegar customer_id
+      const user = await userRepository.findOne({
+        where: { id: userId },
+        relations: ["config"],
+      });
+      const customerId = user?.config?.stripe_customer_id;
+      if (!customerId) {
+        return res
+          .status(400)
+          .json({ error: "Cliente Stripe não encontrado." });
+      }
+
+      // Anexa o método ao customer (se necessário)
+      await stripe.paymentMethods.attach(payment_method_id, {
+        customer: customerId,
+      });
+
+      // Seta como novo default para invoices
+      await stripe.customers.update(customerId, {
+        invoice_settings: { default_payment_method: payment_method_id },
+      });
+
+      // Opcional/fortemente recomendado: Atualizar todas subscriptions ativas para garantir pagamento
+      const activeSubs = await stripe.subscriptions.list({
+        customer: customerId,
+        status: "active",
+      });
+      for (const sub of activeSubs.data) {
+        await stripe.subscriptions.update(sub.id, {
+          default_payment_method: payment_method_id,
+        });
+      }
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Erro ao atualizar método de pagamento:", error);
+      res.status(500).json({
+        error:
+          error.message || "Erro interno ao atualizar método de pagamento.",
       });
     }
   }

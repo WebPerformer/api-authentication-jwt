@@ -8,6 +8,7 @@ import { authMiddleware } from "./middlewares/authMiddleware";
 import { authorize } from "./middlewares/authorize";
 import { UserRole } from "./entities/User";
 import { PaymentController } from "./controllers/PaymentController";
+import { SubscriptionController } from "./controllers/SubscriptionController";
 
 const routes = Router();
 
@@ -61,6 +62,23 @@ routes.post(
 routes.post(
   "/payment/confirm-payment",
   new PaymentController().confirmOneTimePayment
+);
+routes.post(
+  "/payment/create-setup-intent",
+  new PaymentController().createSetupIntent
+);
+routes.post(
+  "/payment/update-payment-method",
+  new PaymentController().updatePaymentMethod
+);
+
+routes.post(
+  "/subscriptions/change",
+  new SubscriptionController().changeSubscription
+);
+routes.post(
+  "/subscriptions/cancel",
+  new SubscriptionController().cancelSubscription
 );
 
 export default routes;
