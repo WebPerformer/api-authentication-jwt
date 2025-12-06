@@ -108,8 +108,10 @@ export class AuthController {
     }
 
     const now = new Date();
-    const userOtp = await userOtpRepository.findOneBy({
-      user: user,
+    const userOtp = await userOtpRepository.findOne({
+      where: {
+        user: { id: user.id },
+      },
     });
     if (userOtp) {
       const timeSinceLast =
@@ -169,12 +171,16 @@ export class AuthController {
       throw new BadRequestError("Usuário não encontrado");
     }
 
-    const userOtp = await userOtpRepository.findOneBy({
-      otpCode: otp,
-      user: user,
+    const userOtp = await userOtpRepository.findOne({
+      where: {
+        otpCode: otp,
+        user: { id: user.id },
+      },
     });
     if (!userOtp || userOtp.otpExpireAt! < new Date()) {
-      await userOtpRepository.delete(userOtp!.id);
+      if (userOtp) {
+        await userOtpRepository.delete(userOtp.id);
+      }
       throw new BadRequestError("Código OTP inválido ou expirado");
     }
 
@@ -195,9 +201,11 @@ export class AuthController {
       throw new BadRequestError("Usuário não encontrado");
     }
 
-    const userOtp = await userOtpRepository.findOneBy({
-      otpCode: otp,
-      user: user,
+    const userOtp = await userOtpRepository.findOne({
+      where: {
+        otpCode: otp,
+        user: { id: user.id },
+      },
     });
 
     if (!userOtp || !userOtp.otpValidated) {

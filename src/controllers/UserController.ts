@@ -61,4 +61,35 @@ export class UserController {
 
     return res.json({ message: "Profile deleted successfully" });
   }
+
+  async getAllUsers(req: Request, res: Response) {
+    const users = await userRepository.find({
+      relations: ["config"],
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        profileImage: true,
+        role: true,
+        config: {
+          id: true,
+          selected_template_id: true,
+          template_url: true,
+          is_template_configured: true,
+          stripe_customer_id: true,
+        },
+      },
+    });
+
+    // Remove password from response
+    const usersWithoutPassword = users.map((user) => {
+      const { password: _, ...userWithoutPassword } = user;
+      return userWithoutPassword;
+    });
+
+    return res.json({
+      success: true,
+      data: usersWithoutPassword,
+    });
+  }
 }

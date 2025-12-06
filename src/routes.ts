@@ -3,7 +3,6 @@ import { AuthController } from "./controllers/AuthController";
 import { UserController } from "./controllers/UserController";
 import { TemplateController } from "./controllers/TemplateController";
 import { UserConfigController } from "./controllers/UserConfigController";
-import { WebhookController } from "./controllers/WebhookController";
 import { authMiddleware } from "./middlewares/authMiddleware";
 import { authorize } from "./middlewares/authorize";
 import { UserRole } from "./entities/User";
@@ -24,8 +23,6 @@ routes.post("/auth/validate-otp", new AuthController().validateOtp);
 routes.post("/auth/reset-password", new AuthController().resetPassword);
 
 // PUBLIC ROUTES
-routes.post("/webhooks/stripe", new WebhookController().handleWebhook);
-
 routes.post("/users/by-slug", new UserConfigController().getUserBySlug);
 
 // PROTECTED ROUTES (requer auth)
@@ -39,6 +36,13 @@ routes.get("/users/me", new UserController().getProfile);
 routes.patch("/users/me", new UserController().updateProfile);
 routes.delete("/users/me", new UserController().deleteProfile);
 
+// ADMIN ROUTES - List all users (admin only)
+routes.get(
+  "/users",
+  authorize(UserRole.ADMIN),
+  new UserController().getAllUsers
+);
+
 // TEMPLATES ROUTES
 routes.get("/templates", new TemplateController().getTemplates);
 routes.get("/templates/:id", new TemplateController().getTemplateById);
@@ -49,6 +53,10 @@ routes.patch("/user/config", new UserConfigController().updateUserConfig);
 routes.post(
   "/user/config/activate-template",
   new UserConfigController().activateTemplate
+);
+routes.post(
+  "/user/config/check-url",
+  new UserConfigController().checkUrlAvailability
 );
 
 routes.post(
@@ -79,6 +87,10 @@ routes.post(
 routes.post(
   "/subscriptions/cancel",
   new SubscriptionController().cancelSubscription
+);
+routes.get(
+  "/subscriptions/has-used-trial",
+  new SubscriptionController().hasUsedTrial
 );
 
 export default routes;

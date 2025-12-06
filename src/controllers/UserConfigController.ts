@@ -92,6 +92,18 @@ export class UserConfigController {
 
       // Atualizar campos básicos do UserConfig
       if (template_data?.url !== undefined) {
+        // Verificar se a URL já está em uso por outro usuário
+        const configRepo = userRepository.manager.getRepository(UserConfig);
+        const existingConfig = await configRepo.findOne({
+          where: { template_url: template_data.url },
+          relations: ["user"],
+        });
+
+        // Se encontrou uma config com essa URL e não é do próprio usuário
+        if (existingConfig && existingConfig.user.id !== userId) {
+          throw new BadRequestError("Esta URL já está em uso. Escolha outra.");
+        }
+
         updateData.template_url = template_data.url;
       }
       if (template_data?.description !== undefined) {
@@ -364,6 +376,44 @@ export class UserConfigController {
       });
     } catch (error) {
       console.error("Error fetching user by slug:", error);
+      return res.status(500).json({
+        success: false,
+        error: "Internal server error",
+      });
+    }
+  }
+
+  async checkUrlAvailability(req: Request, res: Response) {
+    try {
+      const userId = req.user.id;
+      const { url } = req.body;
+
+      if (!url) {
+        return res.status(400).json({
+          success: false,
+          error: "URL is required",
+        });
+      }
+
+      const configRepo = userRepository.manager.getRepository(UserConfig);
+      const existingConfig = await configRepo.findOne({
+        where: { template_url: url },
+        relations: ["user"],
+      });
+
+      // Se não encontrou nenhuma config ou se é do próprio usuário, está disponível
+      const isAvailable =
+        !existingConfig || existingConfig.user.id === userId;
+
+      return res.json({
+        success: true,
+        available: isAvailable,
+        message: isAvailable
+          ? "URL disponível"
+          : "Esta URL já está em uso. Escolha outra.",
+      });
+    } catch (error) {
+      console.error("Error checking URL availability:", error);
       return res.status(500).json({
         success: false,
         error: "Internal server error",

@@ -83,15 +83,20 @@ export class AccessService {
       productTier?: string;
     }> = [];
 
-    // Buscar assinaturas ativas
+    // Buscar assinaturas ativas ou em trial (trialing também deve ter acesso)
     const subscriptions = await this.stripe.subscriptions.list({
       customer: user.config.stripe_customer_id,
-      status: "active",
+      status: "all", // Buscar todas para filtrar manualmente
       // Avoid exceeding Stripe's max expansion depth by stopping at price
       expand: ["data.items.data.price"],
     });
 
-    for (const subscription of subscriptions.data) {
+    // Filtrar apenas assinaturas ativas ou em trial
+    const validSubscriptions = subscriptions.data.filter(
+      (sub) => sub.status === "active" || sub.status === "trialing"
+    );
+
+    for (const subscription of validSubscriptions) {
       for (const item of subscription.items.data) {
         const price = item.price as Stripe.Price;
         let productId: string;

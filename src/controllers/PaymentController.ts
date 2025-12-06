@@ -167,18 +167,23 @@ export class PaymentController {
         },
       });
 
-      // VERIFICAR SE JÁ EXISTE ASSINATURA ATIVA
+      // VERIFICAR SE JÁ EXISTE ASSINATURA ATIVA OU EM TRIAL
       const existingSubscriptions = await stripe.subscriptions.list({
         customer: customerId,
-        status: "active",
-        limit: 1,
+        status: "all", // Buscar todas para filtrar manualmente
+        limit: 10, // Aumentar limite para buscar mais assinaturas
       });
+
+      // Filtrar apenas assinaturas ativas ou em trial
+      const validSubscriptions = existingSubscriptions.data.filter(
+        (sub) => sub.status === "active" || sub.status === "trialing"
+      );
 
       let subscription;
 
-      if (existingSubscriptions.data.length > 0) {
+      if (validSubscriptions.length > 0) {
         // FAZER UPGRADE da assinatura existente
-        const existingSubscription = existingSubscriptions.data[0];
+        const existingSubscription = validSubscriptions[0];
 
         subscription = await stripe.subscriptions.update(
           existingSubscription.id,
@@ -200,7 +205,12 @@ export class PaymentController {
         );
       } else {
         // CRIAR NOVA ASSINATURA (usuário não tinha nenhuma)
-        subscription = await stripe.subscriptions.create({
+        // Verificar se é assinatura básica para aplicar trial
+        const price = await stripe.prices.retrieve(price_id);
+        const product = await stripe.products.retrieve(price.product as string);
+        const isBasicTier = product.metadata?.tier === "basic";
+
+        const subscriptionParams: Stripe.SubscriptionCreateParams = {
           customer: customerId,
           items: [{ price: price_id }],
           metadata: {
@@ -208,7 +218,40 @@ export class PaymentController {
             ...(product_id && { product_id }),
           },
           expand: ["latest_invoice.payment_intent"],
+        };
+
+        // Verificar se o usuário já usou o trial antes
+        // Buscar TODAS as assinaturas do cliente (incluindo canceladas/expiradas)
+        const allSubscriptions = await stripe.subscriptions.list({
+          customer: customerId,
+          status: "all", // Buscar todas: active, canceled, past_due, etc.
+          limit: 100,
         });
+
+        // Verificar se alguma assinatura anterior teve trial
+        // Uma assinatura teve trial se:
+        // 1. Tem trial_end definido (não null e > 0)
+        // 2. Tem trial_start definido (não null e > 0)
+        // 3. Status atual é "trialing"
+        // 4. Status é "canceled" mas tinha trial_end ou trial_start
+        const hasUsedTrialBefore = allSubscriptions.data.some((sub) => {
+          const hadTrialEnd = sub.trial_end !== null && sub.trial_end > 0;
+          const hadTrialStart = sub.trial_start !== null && sub.trial_start > 0;
+          const isTrialing = sub.status === "trialing";
+          const wasCanceledWithTrial =
+            sub.status === "canceled" && (hadTrialEnd || hadTrialStart);
+
+          return hadTrialEnd || hadTrialStart || isTrialing || wasCanceledWithTrial;
+        });
+
+        // Aplicar período de avaliação de 14 dias apenas para assinatura básica
+        // E APENAS se o usuário NUNCA usou o trial antes
+        if (isBasicTier && !hasUsedTrialBefore) {
+          // Usar trial_period_days ao invés de trial_end (mais simples e recomendado)
+          subscriptionParams.trial_period_days = 14;
+        }
+
+        subscription = await stripe.subscriptions.create(subscriptionParams);
       }
 
       // Verificar status do pagamento para informar ao frontend
@@ -246,7 +289,7 @@ export class PaymentController {
         subscription_id: subscription.id,
         status: subscription.status,
         // INFORMAR SE FOI UPGRADE OU NOVA ASSINATURA
-        action: existingSubscriptions.data.length > 0 ? "upgraded" : "created",
+        action: validSubscriptions.length > 0 ? "upgraded" : "created",
         // Informar se o pagamento está pendente
         payment_pending: isPaymentPending,
         payment_intent_status: paymentIntentStatus,
@@ -378,12 +421,15 @@ export class PaymentController {
         invoice_settings: { default_payment_method: payment_method_id },
       });
 
-      // Opcional/fortemente recomendado: Atualizar todas subscriptions ativas para garantir pagamento
+      // Opcional/fortemente recomendado: Atualizar todas subscriptions ativas ou em trial para garantir pagamento
       const activeSubs = await stripe.subscriptions.list({
         customer: customerId,
-        status: "active",
+        status: "all",
       });
-      for (const sub of activeSubs.data) {
+      const validSubs = activeSubs.data.filter(
+        (sub) => sub.status === "active" || sub.status === "trialing"
+      );
+      for (const sub of validSubs) {
         await stripe.subscriptions.update(sub.id, {
           default_payment_method: payment_method_id,
         });
